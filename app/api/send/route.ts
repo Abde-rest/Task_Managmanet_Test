@@ -3,12 +3,9 @@
 import User from "@/Model/User";
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
-import crypto from "crypto"; 
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import connectDB from "@/app/lib/mongodb";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: Request) {
   try {
@@ -29,6 +26,9 @@ export async function POST(req: Request) {
     }
     // 2 Generate a unique JWT token for the user that contains the user's id
     const secret = process.env.JWT_SECRET_KEY;
+    if (!secret) {
+      throw new Error("JWT_SECRET_KEY غير معرف في المتغيرات البيئية");
+    }
     const resetToken = jwt.sign({ userId: user._id, email: email }, secret, {
       expiresIn: "10m",
     });
@@ -52,6 +52,15 @@ export async function POST(req: Request) {
     const resetLink = `${process.env.NEXT_PUBLIC_BASE_URL}/reset-password?token=${resetToken}`;
 
     // 5 Send Email
+    // التحقق من وجود RESEND_API_KEY وإنشاء Resend
+    const resendApiKey = process.env.RESEND_API_KEY;
+    if (!resendApiKey) {
+      return NextResponse.json(
+        { error: "RESEND_API_KEY غير معرف في المتغيرات البيئية" },
+        { status: 500 }
+      );
+    }
+    const resend = new Resend(resendApiKey);
 
     const { data, error } = await resend.emails.send({
       // This domain form resend not custome domain
